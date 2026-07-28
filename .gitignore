@@ -1,0 +1,26 @@
+# Python
+.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets / local env (never commit)
+.env
+.env.local
+web/.env
+web/.env.local
+
+# Node / frontend build
+web/node_modules/
+web/dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+python-multipart
+numpy
+faiss-cpu
+sentence-transformers
+rank-bm25
+cachetools
+httpx
+pymupdf
+pillow
+pytesseract
