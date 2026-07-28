@@ -13,13 +13,6 @@ The vector index lives in process memory and resets when the API stops.
 
 **OCR (optional):** install [Tesseract](https://github.com/tesseract-ocr/tesseract) on the API host, or set `PDF_OCR_ENABLED=false` (text and tables from PDFs still work).
 
-## Hosting 
-
-| Piece | Where | Why |
-|-------|--------|-----|
-| **UI** (`web/`) | **Vercel** | Static Vite/React SPA |
-| **API** (`app/`) | **Railway / Render / Fly.io** | Long-running process + embedding model — not a fit for Vercel serverless |
-
 
 ## 1) Local setup
 
