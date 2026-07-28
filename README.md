@@ -81,9 +81,3 @@ Responses include a simple `fast` / `deep` **route label** (placeholder for futu
 2. Reranker on top of hybrid retrieval.
 3. Tracing / eval.
 4. Real model routing from the `fast` / `deep` label.
-
-## 4) Publishing checklist
-
-- Keep `.env` out of git. Rotate any keys that ever lived in a local `.env`.
-- Commit only `.env.example` (empty keys).
-- On Vercel: set `VITE_API_URL`. On the API host: set secrets + `CORS_ORIGINS` including your Vercel domain.
