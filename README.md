@@ -9,31 +9,17 @@ Technical-document Q&A with a React UI and FastAPI backend:
 - FastAPI API with prompt caching (in-memory index; no auth)
 - React UI with optional bring-your-own LLM key
 
-This is a **demo / portfolio starter**, not a multi-tenant production service. The vector index lives in process memory and resets when the API stops.
+The vector index lives in process memory and resets when the API stops.
 
 **OCR (optional):** install [Tesseract](https://github.com/tesseract-ocr/tesseract) on the API host, or set `PDF_OCR_ENABLED=false` (text and tables from PDFs still work).
 
-## Hosting (recommended split)
+## Hosting 
 
 | Piece | Where | Why |
 |-------|--------|-----|
 | **UI** (`web/`) | **Vercel** | Static Vite/React SPA |
 | **API** (`app/`) | **Railway / Render / Fly.io** | Long-running process + embedding model — not a fit for Vercel serverless |
 
-### Deploy the UI on Vercel
-
-1. Root Directory = `web`.
-2. Set **`VITE_API_URL`** to your public API origin (no trailing slash).
-3. Add your Vercel URL to the API’s **`CORS_ORIGINS`**.
-
-### Deploy the API
-
-On Railway/Render/Fly:
-
-1. Deploy the repo root (Python + `requirements.txt`).
-2. Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-3. Copy env vars from `.env.example` into the host dashboard (never commit secrets).
-4. Prefer enough RAM for `BAAI/bge-m3` (often 2GB+).
 
 ## 1) Local setup
 
@@ -96,7 +82,7 @@ Responses include a simple `fast` / `deep` **route label** (placeholder for futu
 - `LLM_API_KEY=<your xAI API key>`
 - `OPENAI_MODEL=<exact model id from the xAI console>`
 
-## 3) Suggested next milestones
+## 3) Projected next milestones
 
 1. Persistent FAISS index + metadata DB (important for hosted demos).
 2. Reranker on top of hybrid retrieval.
