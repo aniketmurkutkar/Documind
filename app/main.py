@@ -1,3 +1,7 @@
+import asyncio
+from contextlib import asynccontextmanager
+from threading import Lock
+
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,8 +20,44 @@ from app.services.document_extract import extract_pdf_bytes
 from app.services.pipeline import RagPipeline
 
 settings = get_settings()
-pipeline = RagPipeline(settings)
-app = FastAPI(title="Documind RAG API", version="0.1.0")
+
+_pipeline: RagPipeline | None = None
+_pipeline_lock = Lock()
+_pipeline_ready = False
+_pipeline_error: str | None = None
+
+
+def get_pipeline() -> RagPipeline:
+    global _pipeline, _pipeline_ready, _pipeline_error
+    with _pipeline_lock:
+        if _pipeline is not None:
+            return _pipeline
+        try:
+            _pipeline = RagPipeline(settings)
+            _pipeline_ready = True
+            _pipeline_error = None
+            return _pipeline
+        except Exception as exc:  # noqa: BLE001 — surface load failures to callers
+            _pipeline_error = str(exc)
+            raise
+
+
+def _warm_pipeline() -> None:
+    try:
+        get_pipeline()
+    except Exception:  # noqa: BLE001 — error stored in _pipeline_error
+        pass
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Load BAAI/bge-m3 in the background so /health can pass Railway checks immediately.
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(None, _warm_pipeline)
+    yield
+
+
+app = FastAPI(title="Documind RAG API", version="0.1.0", lifespan=lifespan)
 
 _cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(
@@ -31,23 +71,30 @@ app.add_middleware(
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "indexed_vectors": pipeline.store.total}
+    indexed = _pipeline.store.total if _pipeline is not None else 0
+    return {
+        "status": "ok",
+        "model_ready": _pipeline_ready,
+        "model_error": _pipeline_error,
+        "indexed_vectors": indexed,
+    }
 
 
 @app.get("/index/documents", response_model=IndexDocumentsResponse)
 def list_index_documents() -> IndexDocumentsResponse:
-    return pipeline.list_indexed_documents()
+    return get_pipeline().list_indexed_documents()
 
 
 @app.post("/index/clear", response_model=ClearIndexResponse)
 def clear_index() -> ClearIndexResponse:
-    pipeline.clear_index()
-    return ClearIndexResponse(indexed_vectors=pipeline.store.total)
+    pipe = get_pipeline()
+    pipe.clear_index()
+    return ClearIndexResponse(indexed_vectors=pipe.store.total)
 
 
 @app.post("/ingest", response_model=IngestResponse)
 def ingest(payload: IngestRequest) -> IngestResponse:
-    docs, chunks, total = pipeline.ingest(payload.documents)
+    docs, chunks, total = get_pipeline().ingest(payload.documents)
     return IngestResponse(
         documents_ingested=docs,
         chunks_created=chunks,
@@ -91,7 +138,7 @@ async def ingest_pdf(
         text=extracted.text,
         metadata=extracted.metadata,
     )
-    docs, chunks, total = pipeline.ingest([document])
+    docs, chunks, total = get_pipeline().ingest([document])
     s = extracted.stats
     return IngestPdfResponse(
         documents_ingested=docs,
@@ -112,7 +159,7 @@ async def query(
     x_llm_api_key: str | None = Header(default=None, alias="X-LLM-Api-Key"),
 ) -> QueryResponse:
     top_k = payload.top_k or settings.top_k
-    answer, cached, route, retrieved = await pipeline.query(
+    answer, cached, route, retrieved = await get_pipeline().query(
         query=payload.query,
         top_k=top_k,
         use_generation=payload.use_generation,
