@@ -1,0 +1,28 @@
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: documind-api
+    runtime: docker
+    plan: standard
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      # Smaller model fits cloud RAM better than BAAI/bge-m3 (1024-d).
+      - key: EMBEDDING_MODEL
+        value: BAAI/bge-small-en-v1.5
+      - key: VECTOR_DIM
+        value: "384"
+      - key: PDF_OCR_ENABLED
+        value: "false"
+      - key: CORS_ORIGINS
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_BASE_URL
+        value: https://api.openai.com/v1
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: LLM_ROUTE
+        value: chat_completions

@@ -1,6 +1,7 @@
-import asyncio
-from contextlib import asynccontextmanager
+from __future__ import annotations
+
 from threading import Lock
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,8 +17,9 @@ from app.schemas import (
     QueryRequest,
     QueryResponse,
 )
-from app.services.document_extract import extract_pdf_bytes
-from app.services.pipeline import RagPipeline
+
+if TYPE_CHECKING:
+    from app.services.pipeline import RagPipeline
 
 settings = get_settings()
 
@@ -28,11 +30,14 @@ _pipeline_error: str | None = None
 
 
 def get_pipeline() -> RagPipeline:
+    """Load the RAG stack on first use (not at import time)."""
     global _pipeline, _pipeline_ready, _pipeline_error
     with _pipeline_lock:
         if _pipeline is not None:
             return _pipeline
         try:
+            from app.services.pipeline import RagPipeline
+
             _pipeline = RagPipeline(settings)
             _pipeline_ready = True
             _pipeline_error = None
@@ -42,22 +47,7 @@ def get_pipeline() -> RagPipeline:
             raise
 
 
-def _warm_pipeline() -> None:
-    try:
-        get_pipeline()
-    except Exception:  # noqa: BLE001 — error stored in _pipeline_error
-        pass
-
-
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    # Load BAAI/bge-m3 in the background so /health can pass Railway checks immediately.
-    loop = asyncio.get_running_loop()
-    loop.run_in_executor(None, _warm_pipeline)
-    yield
-
-
-app = FastAPI(title="Documind RAG API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Documind RAG API", version="0.1.0")
 
 _cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(
@@ -116,6 +106,8 @@ async def ingest_pdf(
         description="Document id; defaults to uploaded filename (stem).",
     ),
 ) -> IngestPdfResponse:
+    from app.services.document_extract import extract_pdf_bytes
+
     if not _is_pdf_name(file.filename):
         if file.content_type not in ("application/pdf", "application/x-pdf"):
             raise HTTPException(

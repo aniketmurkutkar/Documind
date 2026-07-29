@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-import faiss
 import numpy as np
 
 
@@ -14,6 +13,8 @@ class ChunkRecord:
 
 class FaissStore:
     def __init__(self, vector_dim: int):
+        import faiss
+
         self.vector_dim = vector_dim
         self.index = faiss.IndexFlatIP(vector_dim)
         self.records: list[ChunkRecord] = []
