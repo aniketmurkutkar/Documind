@@ -216,14 +216,7 @@ export default function App() {
               <strong>your</strong> Documind backend only — never committed to GitHub. Use HTTPS
               when deployed.
             </p>
-            <label className="field">
-              <span>Backend base URL (optional)</span>
-              <input
-                className="input"
-                placeholder="empty = dev proxy (/api → localhost:8000)"
-                value={apiBaseInput}
-                onChange={(e) => setApiBaseInput(e.target.value)}
-              />
+            
             </label>
             <label className="field">
               <span>LLM API key (optional)</span>
