@@ -217,7 +217,6 @@ export default function App() {
               when deployed.
             </p>
             
-            </label>
             <label className="field">
               <span>LLM API key (optional)</span>
               <input
