@@ -12,7 +12,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
     )
 
-    embedding_model: str = "BAAI/bge-m3"
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
     vector_dim: int = 1024
     top_k: int = 5
     hybrid_alpha: float = 0.7
