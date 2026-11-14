@@ -13,10 +13,8 @@ class ChunkRecord:
 
 class FaissStore:
     def __init__(self, vector_dim: int):
-        import faiss
-
         self.vector_dim = vector_dim
-        self.index = faiss.IndexFlatIP(vector_dim)
+        self.index = self._new_index()
         self.records: list[ChunkRecord] = []
         self._vectors = np.zeros((0, vector_dim), dtype=np.float32)
 
@@ -44,7 +42,7 @@ class FaissStore:
         mask = np.array([r.doc_id not in doc_ids for r in self.records], dtype=bool)
         self.records = keep
         self._vectors = self._vectors[mask]
-        self.index = faiss.IndexFlatIP(self.vector_dim)
+        self.index = self._new_index()
         if self._vectors.shape[0] > 0:
             self.index.add(self._vectors)
         return removed
@@ -52,7 +50,7 @@ class FaissStore:
     def clear(self) -> None:
         self.records = []
         self._vectors = np.zeros((0, self.vector_dim), dtype=np.float32)
-        self.index = faiss.IndexFlatIP(self.vector_dim)
+        self.index = self._new_index()
 
     def search(self, query_vector: np.ndarray, top_k: int) -> list[tuple[ChunkRecord, float]]:
         if self.index.ntotal == 0:
@@ -70,3 +68,9 @@ class FaissStore:
     @property
     def total(self) -> int:
         return self.index.ntotal
+
+    def _new_index(self):
+        # Imported lazily so app startup doesn't pay for loading faiss.
+        import faiss
+
+        return faiss.IndexFlatIP(self.vector_dim)
