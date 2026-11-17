@@ -39,6 +39,8 @@ uvicorn app.main:app --reload --reload-dir app --host 127.0.0.1 --port 8000
 
 First boot downloads the embedding model and can take a few minutes.
 
+**Running tests:** `pip install pytest`, then run `pytest` from the repo root.
+
 ### Web UI
 
 1. Start the API on port **8000**.
