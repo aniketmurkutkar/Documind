@@ -65,6 +65,13 @@ class FaissStore:
             pairs.append((self.records[idx], float(score)))
         return pairs
 
+    def similarity(self, query_vector: np.ndarray, indices: list[int]) -> np.ndarray:
+        """Inner-product scores for specific records, on the same scale as search()."""
+        if not indices:
+            return np.zeros(0, dtype=np.float32)
+        q = np.asarray(query_vector, dtype=np.float32)
+        return self._vectors[indices] @ q
+
     @property
     def total(self) -> int:
         return self.index.ntotal
