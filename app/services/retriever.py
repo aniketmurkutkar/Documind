@@ -9,6 +9,13 @@ def _tokenize(text: str) -> list[str]:
     return re.findall(r"[A-Za-z0-9_]+", text.lower())
 
 
+def _normalize(values: list[float]) -> list[float]:
+    lo, hi = min(values), max(values)
+    if hi <= lo:
+        return [0.0 for _ in values]
+    return [(v - lo) / (hi - lo) for v in values]
+
+
 class HybridRetriever:
     def __init__(self, store: FaissStore, alpha: float = 0.7):
         self.store = store
@@ -29,42 +36,55 @@ class HybridRetriever:
         query_vector,
         top_k: int,
     ) -> list[tuple[ChunkRecord, float]]:
-        dense_hits = self.store.search(query_vector, top_k=max(top_k * 2, 10))
-        if not dense_hits:
+        """Weighted dense + BM25 search over the union of both top-N candidate sets.
+
+        Candidates come from the dense top-N *and* the BM25 top-N, so a strong
+        keyword match (identifier, error code) can be returned even when its
+        embedding isn't close to the query. Both score types are then min-max
+        normalized over that same candidate set before being combined with alpha.
+        """
+        records = self.store.records
+        if not records:
             return []
 
-        dense_map = {record.chunk_id: score for record, score in dense_hits}
-        sparse_map: dict[str, float] = {}
+        n_candidates = max(top_k * 2, 10)
+        index_of = {r.chunk_id: i for i, r in enumerate(records)}
 
+        candidates: list[int] = []
+        seen: set[int] = set()
+        for record, _ in self.store.search(query_vector, top_k=n_candidates):
+            idx = index_of.get(record.chunk_id)
+            if idx is not None and idx not in seen:
+                seen.add(idx)
+                candidates.append(idx)
+
+        sparse_scores = None
         if self._bm25 is not None:
-            q_tokens = _tokenize(query)
-            sparse_scores = self._bm25.get_scores(q_tokens)
-            for idx, sparse_score in enumerate(sparse_scores):
-                if idx >= len(self.store.records):
-                    continue
-                sparse_map[self.store.records[idx].chunk_id] = float(sparse_score)
+            sparse_scores = self._bm25.get_scores(_tokenize(query))
+            n_sparse = min(len(sparse_scores), len(records))
+            sparse_top = sorted(range(n_sparse), key=lambda i: sparse_scores[i], reverse=True)
+            for idx in sparse_top[:n_candidates]:
+                # Zero means no query term overlap; that's not a keyword match.
+                if sparse_scores[idx] <= 0:
+                    break
+                if idx not in seen:
+                    seen.add(idx)
+                    candidates.append(idx)
 
-        dense_vals = list(dense_map.values())
-        sparse_vals = list(sparse_map.values()) if sparse_map else [0.0]
-        dense_min, dense_max = min(dense_vals), max(dense_vals)
-        sparse_min, sparse_max = min(sparse_vals), max(sparse_vals)
+        if not candidates:
+            return []
 
-        def normalize(value: float, lo: float, hi: float) -> float:
-            if hi <= lo:
-                return 0.0
-            return (value - lo) / (hi - lo)
+        dense_vals = [float(s) for s in self.store.similarity(query_vector, candidates)]
+        sparse_vals = [
+            float(sparse_scores[i]) if sparse_scores is not None and i < len(sparse_scores) else 0.0
+            for i in candidates
+        ]
+        dense_norm = _normalize(dense_vals)
+        sparse_norm = _normalize(sparse_vals)
 
-        scored: list[tuple[ChunkRecord, float]] = []
-        seen: set[str] = set()
-        for record, dense_score in dense_hits:
-            if record.chunk_id in seen:
-                continue
-            seen.add(record.chunk_id)
-            sparse_score = sparse_map.get(record.chunk_id, 0.0)
-            hybrid_score = self.alpha * normalize(dense_score, dense_min, dense_max) + (
-                1 - self.alpha
-            ) * normalize(sparse_score, sparse_min, sparse_max)
-            scored.append((record, hybrid_score))
-
+        scored = [
+            (records[idx], self.alpha * d + (1 - self.alpha) * s)
+            for idx, d, s in zip(candidates, dense_norm, sparse_norm)
+        ]
         scored.sort(key=lambda item: item[1], reverse=True)
         return scored[:top_k]
