@@ -1,5 +1,7 @@
 # Documind — Multimodal RAG Starter
 
+[![CI](https://github.com/aniketmurkutkar/Documind/actions/workflows/ci.yml/badge.svg)](https://github.com/aniketmurkutkar/Documind/actions/workflows/ci.yml)
+
 Technical-document Q&A with a React UI and FastAPI backend:
 
 - Chunking for long documents
