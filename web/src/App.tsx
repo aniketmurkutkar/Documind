@@ -45,14 +45,16 @@ export default function App() {
   const [healthErr, setHealthErr] = useState<string | null>(null)
   const [clearBusy, setClearBusy] = useState(false)
 
-  const [apiBaseInput, setApiBaseInput] = useState('')
+  const [apiBaseInput] = useState(getSessionApiBase)
   const [settingsOpen, setSettingsOpen] = useState(true)
 
-  const [llmKey, setLlmKey] = useState('')
-  const [llmBase, setLlmBase] = useState('https://api.openai.com/v1')
-  const [llmModel, setLlmModel] = useState('gpt-4o-mini')
-  const [llmRoute, setLlmRoute] = useState<'chat_completions' | 'responses'>(
-    'chat_completions',
+  const [llmKey, setLlmKey] = useState(() => readSession(SK.llmKey))
+  const [llmBase, setLlmBase] = useState(
+    () => readSession(SK.llmBase) || 'https://api.openai.com/v1',
+  )
+  const [llmModel, setLlmModel] = useState(() => readSession(SK.llmModel) || 'gpt-4o-mini')
+  const [llmRoute, setLlmRoute] = useState<'chat_completions' | 'responses'>(() =>
+    readSession(SK.llmRoute) === 'responses' ? 'responses' : 'chat_completions',
   )
 
   const [ingestBusy, setIngestBusy] = useState(false)
@@ -68,27 +70,22 @@ export default function App() {
   const [queryErr, setQueryErr] = useState<string | null>(null)
   const [sourcesOpen, setSourcesOpen] = useState(true)
 
-  const refreshStatus = useCallback(async () => {
-    setHealthErr(null)
-    try {
-      const [h, idx] = await Promise.all([fetchHealth(), fetchIndexDocuments()])
-      setHealth({ ok: h.status === 'ok', vectors: h.indexed_vectors })
-      setCorpus(idx)
-    } catch (e) {
-      setHealth(null)
-      setCorpus(null)
-      setHealthErr(e instanceof Error ? e.message : 'Could not reach API')
-    }
-  }, [])
-
-  useEffect(() => {
-    setApiBaseInput(getSessionApiBase())
-    setLlmKey(readSession(SK.llmKey))
-    setLlmBase(readSession(SK.llmBase) || 'https://api.openai.com/v1')
-    setLlmModel(readSession(SK.llmModel) || 'gpt-4o-mini')
-    const r = readSession(SK.llmRoute)
-    setLlmRoute(r === 'responses' ? 'responses' : 'chat_completions')
-  }, [])
+  const refreshStatus = useCallback(
+    () =>
+      Promise.all([fetchHealth(), fetchIndexDocuments()]).then(
+        ([h, idx]) => {
+          setHealthErr(null)
+          setHealth({ ok: h.status === 'ok', vectors: h.indexed_vectors })
+          setCorpus(idx)
+        },
+        (e: unknown) => {
+          setHealth(null)
+          setCorpus(null)
+          setHealthErr(e instanceof Error ? e.message : 'Could not reach API')
+        },
+      ),
+    [],
+  )
 
   useEffect(() => {
     void refreshStatus()

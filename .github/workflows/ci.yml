@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python (ruff + pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      # Unit tests only touch chunking, FAISS and BM25, so skip the heavy
+      # model/PDF deps (sentence-transformers, torch, pymupdf, OCR).
+      - name: Install test dependencies
+        run: pip install ruff==0.17.6 pytest numpy faiss-cpu rank-bm25
+      - name: Ruff
+        run: ruff check .
+      - name: Pytest
+        run: pytest -q
+
+  web:
+    name: Web (lint + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
