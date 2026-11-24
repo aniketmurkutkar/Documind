@@ -13,6 +13,7 @@ class LLMService:
         cache_max_size: int,
         base_url: str = "https://api.openai.com/v1",
         llm_route: str = "chat_completions",
+        cache: TTLCache | None = None,
     ) -> None:
         self.api_key = api_key
         self.model = model
@@ -22,10 +23,18 @@ class LLMService:
             if llm_route.strip().lower() in ("chat_completions", "responses")
             else "chat_completions"
         )
-        self.cache = TTLCache(maxsize=cache_max_size, ttl=cache_ttl_seconds)
+        # A shared cache lets per-request (bring-your-own-key) instances reuse answers.
+        self.cache = (
+            cache
+            if cache is not None
+            else TTLCache(maxsize=cache_max_size, ttl=cache_ttl_seconds)
+        )
 
     def _cache_key(self, query: str, context: str) -> str:
-        raw = f"{self.llm_route}||{query}||{context}".encode("utf-8")
+        # Never include the API key: answers are shared across keys for the same endpoint/model.
+        raw = "||".join(
+            (self.base_url, self.model, self.llm_route, query, context)
+        ).encode("utf-8")
         return hashlib.sha256(raw).hexdigest()
 
     def route_query(self, query: str) -> str:
