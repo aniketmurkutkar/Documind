@@ -18,10 +18,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      # Unit tests only touch chunking, FAISS and BM25, so skip the heavy
-      # model/PDF deps (sentence-transformers, torch, pymupdf, OCR).
+      # Unit tests touch chunking, FAISS, BM25 and the LLM cache (with a stub
+      # embedder and fake HTTP client), so skip the heavy model/PDF deps
+      # (sentence-transformers, torch, pymupdf, OCR).
       - name: Install test dependencies
-        run: pip install ruff==0.17.6 pytest numpy faiss-cpu rank-bm25
+        run: pip install ruff==0.17.6 pytest numpy faiss-cpu rank-bm25 pydantic-settings cachetools httpx
       - name: Ruff
         run: ruff check .
       - name: Pytest
