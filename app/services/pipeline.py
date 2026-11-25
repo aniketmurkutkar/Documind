@@ -1,5 +1,7 @@
 from collections import defaultdict
 
+from cachetools import TTLCache
+
 from app.config import Settings
 from app.schemas import IndexedDocumentInfo, IndexDocumentsResponse, RetrievedChunk
 from app.services.chunking import semantic_like_chunk
@@ -20,6 +22,11 @@ class RagPipeline:
             or settings.openai_api_key
             or settings.groq_api_key
         ).strip()
+        # One answer cache shared by every LLMService, including per-request BYOK ones.
+        self.llm_cache: TTLCache = TTLCache(
+            maxsize=settings.prompt_cache_max_size,
+            ttl=settings.prompt_cache_ttl_seconds,
+        )
         self.llm = LLMService(
             api_key=api_key,
             model=settings.openai_model,
@@ -27,6 +34,7 @@ class RagPipeline:
             cache_max_size=settings.prompt_cache_max_size,
             base_url=settings.llm_base_url,
             llm_route=settings.llm_route,
+            cache=self.llm_cache,
         )
 
     def ingest(self, documents) -> tuple[int, int, int]:
@@ -149,5 +157,6 @@ class RagPipeline:
                 cache_max_size=self.settings.prompt_cache_max_size,
                 base_url=base,
                 llm_route=route,
+                cache=self.llm_cache,
             )
         return self.llm

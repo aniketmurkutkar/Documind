@@ -64,7 +64,7 @@ Interactive docs: **http://127.0.0.1:8000/docs**
 
 If no chat API key is configured (`LLM_API_KEY`, `OPENAI_API_KEY`, or `GROQ_API_KEY`), the API returns retrieval context fallback text.
 
-Responses include a simple `fast` / `deep` **route label** (placeholder for future model routing). Prompt responses are cached in memory with a TTL.
+Responses include a simple `fast` / `deep` **route label** (placeholder for future model routing). Generated answers are cached in memory with a TTL (`PROMPT_CACHE_TTL_SECONDS`, `PROMPT_CACHE_MAX_SIZE`). The cache is shared across requests, including bring-your-own-key ones, and is keyed on base URL + model + route + query + retrieved context; the API key is never part of the key. Failed LLM calls are not cached.
 
 **Groq (not “Grok”):**
 
