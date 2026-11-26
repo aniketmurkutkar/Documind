@@ -115,6 +115,9 @@ def evidence_retrieved():
 
 @task
 def documind_hello(top_k: int = 3):
+    # Load the model and build the index up front, so download and indexing
+    # time isn't charged to whichever sample happens to run first.
+    _pipeline()
     return Task(
         dataset=SAMPLES,
         solver=documind_retrieve(top_k=top_k),
